@@ -1,0 +1,743 @@
+import { Component, OnInit, HostListener } from '@angular/core';
+import { AppService } from '../../../app.service';
+import { HttpClient } from '@angular/common/http';
+import { Router, CanDeactivate } from '@angular/router';
+import { Question } from '../../../../question';
+import { Pin } from '../../../../pinupdate';
+import { AssertNotNull } from '@angular/compiler';
+import Speech from 'speak-tts';
+declare var $: any;
+declare const CameraTag: any;
+declare const TextToSpeech: any;
+declare var window: any;
+import Swal from 'sweetalert2/dist/sweetalert2.js';
+import { CanComponentDeactivate } from '../confirmation/confirmation.guard';
+@Component({
+  selector: 'app-mock',
+  templateUrl: './mock.component.html',
+  styleUrls: ['./mock.component.css']
+})
+export class MockComponent implements OnInit, CanComponentDeactivate {
+  maxlength = 60;
+  myCamera: any;
+  status: any;
+  questions = {};
+  videoURL: any;
+  POST_URL = 'http://localhost:3000/api/interview/asynctest/update';
+  data = {};
+  question: Question;
+  question_time = 60;
+
+  id = 2;
+  uid = 'testtt';
+  answer = 'ans';
+  userId = parseInt(localStorage.getItem('userId'));
+  status2 = 1;
+  title = 'mycam1';
+  pinclass: Pin;
+
+  mystatus = localStorage.getItem('status');
+  pin = localStorage.getItem('pin');
+  email = localStorage.getItem('email');
+  saveButton = 'Done Answering';
+  nextButton = 'Redirecting...';
+  finishButton = 'Thank You! Click here for Review';
+
+  saveButtonStatus = 1;
+  nextButtonStatus = 0;
+  finishButtonStatus = 0;
+  imagePath = 'assets/images/speak.gif';
+
+  // user get details
+  InterviewId = localStorage.getItem('InterviewId');
+  examstatus = 0;
+  message: any;
+  profile: any;
+  profiledisplay: any;
+
+  constructor(
+    private service: AppService,
+    private http: HttpClient,
+    private router: Router
+  ) {
+    this.question = new Question();
+    this.pinclass = new Pin();
+  }
+
+  updatePin() {
+    console.log('test');
+    if (this.mystatus == 'Verified') {
+      console.log('verified');
+      this.mystatus = 'Submitted';
+      this.pinclass.pin = parseInt(this.pin);
+      this.pinclass.email = this.email;
+      this.pinclass.status = this.mystatus;
+      localStorage.setItem('status', 'Submitted');
+
+      this.service
+        .updatePin(this.pinclass)
+        .subscribe(resp => console.log(resp), err => console.log(err));
+    }
+  }
+
+  speak(speech) {
+    const speakButton = document.getElementById('play');
+    speakButton.addEventListener('click', () => {
+      $('.speak').attr('src', 'assets/images/speak.gif');
+      speech
+        .speak({
+          text: localStorage.getItem('question'),
+          queue: false,
+          listeners: {
+            onstart: () => {
+              console.log('Start utterance');
+            },
+            onend: () => {
+              console.log('End utterance');
+            },
+            onresume: () => {
+              console.log('Resume utterance');
+            },
+            onboundary: event => {
+              console.log(
+                event.name +
+                ' boundary reached after ' +
+                event.elapsedTime +
+                ' milliseconds.'
+              );
+            }
+          }
+        })
+        .then(data => {
+          setTimeout(function () {
+            $('.speak').attr('src', 'assets/images/speak-shut.jpg');
+          }, 1000);
+          console.log('Success !', data);
+        })
+        .catch(e => {
+          console.error('An error occurred :', e);
+        });
+    });
+  }
+
+  ngOnDestroy(): void {
+
+    CameraTag.cameras['myCamera'].destroy();
+  }
+
+  ngOnInit() {
+
+
+
+
+
+    localStorage.setItem('profile', 'no');
+    this.profiledisplay = localStorage.getItem('profile');
+    /* speeach */
+    const speech = new Speech();
+    speech
+      .init({
+        volume: 1,
+        lang: 'en-GB',
+        voice: 'Google UK English Male',
+        rate: 1,
+        pitch: 1,
+        splitSentences: true
+      })
+      .then(data => {
+        console.log('Speech is ready', data);
+        this.speak(speech);
+      })
+      .catch(e => {
+        console.error('An error occured while initializing : ', e);
+      });
+    const browsersupport = speech.hasBrowserSupport()
+      ? 'Hurray, your browser supports speech synthesis'
+      : 'Your browser does NOT support speech synthesis. Try using Chrome of Safari instead !';
+    console.log('speech is  supported');
+    /* end speeach */
+    this.updatePin();
+
+    if (
+      localStorage.getItem('InterviewId') === '' ||
+      localStorage.getItem('InterviewId') === 'undefined'
+    ) {
+      this.router.navigate(['/examboard/viewreviews']);
+    }
+    // $(window).load(function(){
+    //   $('.time').hide();
+    //   $('.progress').hide();
+    // });
+    $(document).ready(function () {
+      //timer start 
+
+      let hour: any = 0;
+      let minute: any = 0;
+      let seconds: any = 0;
+      let totalSeconds: any = 0;
+
+      let intervalId = null;
+
+      function startTimer() {
+        ++totalSeconds;
+        hour = Math.floor(totalSeconds / 3600);
+        minute = Math.floor((totalSeconds - hour * 3600) / 60);
+        seconds = totalSeconds - (hour * 3600 + minute * 60);
+
+        document.getElementById("hour").innerHTML = hour;
+        document.getElementById("minute").innerHTML = minute;
+        document.getElementById("seconds").innerHTML = seconds;
+      }
+      document.getElementById('start-btn').addEventListener('click', () => {
+        intervalId = setInterval(startTimer, 1000);
+      })
+
+      document.getElementById('stop-btn').addEventListener('click', () => {
+        if (intervalId)
+          clearInterval(intervalId);
+      });
+
+      document.getElementById('reset-btn').addEventListener('click', () => {
+        totalSeconds = 0;
+        document.getElementById("hour").innerHTML = '0';
+        document.getElementById("minute").innerHTML = '0';
+        document.getElementById("seconds").innerHTML = '0';
+      });
+
+
+
+      //timer stop 
+
+      // voice to text here
+      //$('.time').hide();
+      $('.progress').hide();
+      window.SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+      let speech = '';
+
+      if (window.SpeechRecognition === null) {
+      } else {
+        const recognizer = new window.SpeechRecognition();
+
+        recognizer.continuous = false;
+        recognizer.lang = 'en-US';
+        recognizer.interimResults = false;
+        recognizer.maxAlternatives = 1;
+
+        const transcription = document.getElementById('transcription');
+        const log = document.getElementById('log');
+
+        // Recogniser doesn't stop listening even if the user pauses
+        recognizer.continuous = true;
+
+        // Start recognising
+        recognizer.onresult = function (event) {
+          transcription.textContent = '';
+          localStorage.setItem('speech', '');
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              transcription.textContent += event.results[i][0].transcript;
+
+              //  console.log(transcription.textContent);
+            } else {
+              transcription.textContent += event.results[i][0].transcript;
+              //    console.log(transcription.textContent);
+            }
+          }
+          speech += transcription.textContent;
+          this.message = speech;
+          console.log(speech);
+          localStorage.setItem('speech', speech);
+        };
+
+        // Listen for errors
+        recognizer.onerror = function (event) {
+          //  log.innerHTML = 'Recognition error: ' + event.message + '<br />' + log.innerHTML;
+        };
+
+        //        $('body').on('click', '#button-play-ws', function () {
+        const playspeak = document.getElementById('button-play-ws');
+        playspeak.addEventListener('click', () => {
+          localStorage.setItem('speech', '');
+          // Set if we need interim results
+          //  recognizer.interimResults = document.querySelector('input[name="recognition-type"][value="interim"]').checked;
+          recognizer.interimResults = false;
+          try {
+            recognizer.start();
+          } catch (ex) { }
+        });
+
+        //  $('body').on('click', '#button-stop-ws', function () {
+        const stopspeak = document.getElementById('button-stop-ws');
+        stopspeak.addEventListener('click', () => {
+          recognizer.stop();
+
+          // log.innerHTML = 'Recognition stopped' + '<br />' + log.innerHTML;
+        });
+
+        const setTime = document.getElementById('setime');
+        setTime.addEventListener('click', () => {
+          // alert('hiii');
+
+          $('#myCamera').attr('data-maxlength', 35)
+        });
+
+        //  $('body').on('click', '#clear-all', function () {
+        const clearspeak = document.getElementById('clear-all');
+        clearspeak.addEventListener('click', () => {
+          localStorage.setItem('speech', '');
+          transcription.textContent = '';
+          speech = '';
+          log.textContent = '';
+        });
+
+        $('body').on('click', '#show-content', function () {
+          alert(speech);
+
+          // log.innerHTML = 'Recognition stopped' + '<br />' + log.innerHTML;
+        });
+      }
+      // end of voice to text here
+      $('.redirect').hide();
+      setTimeout(function () {
+        $('.speak').attr('src', 'assets/images/speak-shut.jpg');
+      }, 4000);
+
+      CameraTag.setup();
+      CameraTag.observe('myCamera', 'initialized', function () {
+        $('.cameratag_record').trigger('click');
+        // alert('test');
+        setTimeout(function () {
+          $('#start-btn').trigger('click');
+        }, 5000);
+        $('.time1').show();
+        $('.progress').hide();
+
+        setTimeout(function () {
+          $('.speak').attr('src', 'assets/images/speak-shut.jpg');
+          $('#button-play-ws').trigger('click');
+        }, 4000);
+        //   alert(localStorage.getItem('question'));
+        $('#play').trigger('click');
+        localStorage.setItem('speech', '');
+
+        $('#clear-all').trigger('click');
+
+        // alert('testtt');
+        // $('#myCamera').addClass('pointers');
+
+      });
+
+      CameraTag.observe('myCamera', 'readyToPublish', function () {
+        const status = CameraTag.cameras['myCamera'].getState();
+        if (status == 'readyToPublish') {
+          CameraTag.cameras['myCamera'].publish();
+          $('.redirect').show();
+          $('#nextbtn').attr('disabled', true);
+          // this.service.postQuestion(1, 'test', 'testing', 1, 1).subscribe(resp => console.log(resp), err => console.log(err));
+        }
+      });
+
+      CameraTag.observe('myCamera', 'publishing', function () {
+        $('.time').html('');
+        $('.time1').hide();
+      });
+
+      CameraTag.observe('myCamera', 'recordingStarted', function () {
+        let time = $('.cameratag_record_timer_prompt').html();
+        time = time.replace('(', '');
+        time = time.replace(')', '');
+
+
+        setInterval(function () {
+          let time = $('.cameratag_record_timer_prompt').html();
+          time = time.replace('(', '');
+          time = time.replace(')', '');
+          $('.time1').html('<span style="color:red;">Remaining Time:</span> ' + time);
+        }, 500);
+
+      });
+
+      CameraTag.observe('myCamera', 'published', function () {
+        $('.time').hide();
+        $('.progress').hide();
+
+        const video = CameraTag.cameras['myCamera'].getVideo();
+        localStorage.setItem('videoid', video.uuid);
+        console.log(video.uuid);
+        console.log(video);
+        console.log(video.medias.mp4);
+        localStorage.setItem('videoURL', video.medias.mp4);
+        console.log(video.medias['360p_mp4']);
+        // alert('test');
+
+        setTimeout(function () {
+          $('#publishbtn').trigger('click');
+          $('#nextbtn').removeAttr('disabled');
+          $('#nextbtn').trigger('click');
+          //  $('.cameratag_record').trigger('click');
+          $('.redirect').hide();
+
+          //   $('#button-play-ws').trigger('click');
+        }, 2000);
+
+        this.saveButtonStatus = 0;
+
+        //  $('.cameratag_record').trigger('click');
+        //  $('#myCamera').click(function () { return false; });
+
+        //  this.service.postQuestion(1, 'test', 'testing', 1, 1).subscribe(resp => console.log(resp), err => console.log(err));
+      });
+
+      CameraTag.observe('myCamera', 'uploadProgress', function () {
+
+        $('.time').hide();
+        $('.progress').show();
+
+        $('.progress').show();
+        let data = $('.cameratag_upload_status').html();
+        $('.progress-bar').css('width', data);
+        $('.progress-bar').html(data);
+
+        // alert(data);
+      });
+    });
+
+    // getting questions
+    this.getQuestions();
+  }
+
+
+
+
+
+
+  getQuestions() {
+    localStorage.setItem('question', '');
+    console.log('hello testing en');
+    console.log(this.InterviewId + this.userId);
+    this.question_time = 60;
+    // $('#myCamera').attr('data-maxlength', '90');
+
+    this.service.getQuestion(parseInt(this.InterviewId)).subscribe(
+      resp => {
+        console.log(resp);
+        this.questions = resp;
+        this.question_time = resp.q_time;
+        //  $('#myCamera').attr('data-maxlength', 40);
+        localStorage.setItem('question', resp.q_title);
+        localStorage.setItem('setTime', resp.qTime);
+        $('settime').trigger('click');
+        this.question_time = resp.qTime;
+        //alert(this.question_time);
+      },
+      err => console.log(err),
+      () => $('#play').trigger('click')
+    );
+    setTimeout(function () {
+      $('.speak').attr('src', 'assets/images/speak-shut.jpg');
+    }, 4000);
+  }
+
+
+
+
+
+  commit(id, ano, max) {
+    $('.time1').html('');
+    $('#stop-btn').trigger('click');
+    CameraTag.cameras['myCamera'].stopRecording();
+    this.status = CameraTag.cameras['myCamera'].getState();
+    this.saveButtonStatus = 0;
+    this.nextButtonStatus = 1;
+    $('#nextbtn').attr('disabled', true);
+
+    // alert(ano + '/' + max)
+    if (ano === max) {
+      this.nextButton = 'Completed Interview';
+    }
+    $('#button-stop-ws').trigger('click');
+    // CameraTag.cameras["myCamera"].publish()
+    // this.service.postQuestion('test', 'testing', 1, 1, 1).subscribe(resp => console.log(resp), err => console.log(err));
+
+    // console.log(this.question.answer);
+
+    /*
+    if (this.status == 'readyToPublish') {
+      $('#cameratag_publish').publish();
+      console.log('hello test');
+    }
+  */
+  }
+
+  // ngOnDestroy(){
+  //   CameraTag.cameras['myCamera'].destroy();
+  // }
+
+  reset(id, ano, max) {
+    // $('#play').trigger('click');
+    // alert(id);
+    // this.imagePath = "assets/images/speak.gif";
+    this.question.id = id;
+    this.question.InterviewId = parseInt(localStorage.getItem('InterviewId'));
+    this.question.uid = localStorage.getItem('videoid');
+    this.question.answer = localStorage.getItem('speech');
+    this.question.userId = parseInt(localStorage.getItem('userId'));
+    this.question.status = 1;
+    this.question.videoURL = localStorage.getItem('videoURL');
+    this.question.time_taken = $('.cameratag_record_timer_prompt').html();
+    this.question.time_taken = this.question.time_taken.replace('(', '');
+    this.question.time_taken = this.question.time_taken.replace(')', '');
+
+    const maxcount = max;
+
+    // pin class
+    this.pinclass.pin = parseInt(this.pin);
+    this.pinclass.email = this.email;
+    this.pinclass.status = 'Completed';
+
+    // end pin class
+    if (ano === maxcount) {
+      this.saveButtonStatus = 0;
+      this.nextButton = 'Completed Interview';
+    }
+
+    // alert(ano + '/' + maxcount)
+    if (ano <= maxcount) {
+      this.http.post<any>(this.POST_URL, this.question).subscribe(
+        resp => {
+          console.log(resp);
+          localStorage.setItem('videoid', '');
+          localStorage.setItem('speech', '');
+          $('.time1').hide();
+          if (ano == maxcount) {
+            this.nextButton = 'Completed Interview';
+          }
+        },
+        err => console.log(err),
+        () => {
+          if (ano == maxcount) {
+            localStorage.setItem('myinterviewstatus', 'Completed');
+            this.saveButtonStatus = 0;
+            CameraTag.cameras['myCamera'].destroy();
+            this.saveButtonStatus = 0;
+            this.nextButtonStatus = 0;
+            this.mystatus = 'Completed';
+            this.pinclass.pin = parseInt(this.pin);
+            this.pinclass.email = this.email;
+            this.pinclass.status = this.mystatus;
+            localStorage.setItem('status', 'Completed');
+            this.service
+              .updatePin(this.pinclass)
+              .subscribe(resp => console.log(resp), err => console.log(err));
+            $('.myroute').trigger('click');
+            // this.router.navigate(['/examboard/viewreviews']);
+            /*
+          setTimeout(function () {
+            // this.router.navigate(['/examboard/viewreviews']);
+            window.location.href = "/examboard/viewreviews";
+          }, 2000);
+*/
+
+
+          }
+
+          $('.cameratag_record_timer_prompt').html('');
+          //  location.reload();
+          $('.time1').show();
+          CameraTag.cameras['myCamera'].reset();
+          CameraTag.cameras['myCamera'].connect();
+
+          this.getQuestions();
+          //  $('#setime').trigger('click');
+          console.log(this.getQuestions);
+          $('#play').trigger('click');
+          $('#button-stop-ws').trigger('click');
+          //  $('#clear-all').trigger('click');
+
+          setTimeout(function () {
+            CameraTag.connect();
+            CameraTag.cameras['myCamera'].connect();
+            CameraTag.observe('myCamera', 'initialized', function () {
+              // $('.cameratag_record').trigger('click');
+              // $('#myCamera').addClass('pointers');
+            });
+            $('.cameratag_record').trigger('click');
+          }, 1000);
+
+          setTimeout(function () {
+            $('.speak').attr('src', 'assets/images/speak-shut.jpg');
+            //  $('#button-play-ws').trigger('click');
+          }, 3000);
+
+          setTimeout(function () {
+            $('#start-btn').trigger('click');
+          }, 5000);
+          // set image
+
+          // end image
+        }
+      );
+
+      this.saveButtonStatus = 1;
+      this.nextButtonStatus = 0;
+      // $('.cameratag_record').trigger('click');
+    }
+  }
+
+  // end
+  confirm() {
+    return Swal.fire({
+      title: 'Are you sure?',
+      text: 'Have you saved content properly!',
+      type: 'Remainder',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Exit it!',
+      cancelButtonText: 'No, keep it'
+    }).then((result) => {
+      if (result.value) {
+
+        return true;
+
+      } else if (result.dismiss === Swal.DismissReason.cancel) {
+        Swal.fire(
+          'Cancelled',
+          'Your imaginary data is safe :)',
+          'error'
+        )
+      }
+    });
+
+  }
+
+
+}
+=========================================================
+<div class="panel panel-default">
+  <div class="panel-heading">
+    <span style="float:left;"></span>
+    <div style="display: inline-block;float:left;">
+
+      <div style="float:left;font-weight:bold;color:darkblue;">Total Time :
+        <span id="hour" style="font-weight: bold;color:red;display:none;"></span>
+      </div>
+      <div style="float:left;padding-right:2px;margin-left:2px;font-weight:bold;">
+        <span id="minute" style="font-weight: bold;color:red;font-weight:bold;"></span> Mins
+      </div>
+      <div style="float:left;font-weight:bold;padding-left:1px;"> :
+        <span id="seconds" style="font-weight: bold;color:red;"></span> Secs
+      </div>
+
+
+
+    </div>
+    <span style="float:right;font-weight:bold;">Question {{questions.ano}} out of {{questions.max_count}} </span>
+  </div>
+  <div class="panel-body">
+    <div class="col-md-12">
+      <div class="col-md-6">
+        <div class="panel panel-default">
+
+          <div class="panel-body text-center myheight">
+            <form>
+              <div style="color:red;" *ngIf="questions.id<=0">
+                Loading Camera...
+              </div>
+              <camera style="width:100%;min-height:320px ;" data-app-id='a-720c7780-ec92-0136-b4db-0adeb7a592e0' data-publish-on-upload='true'
+                class='camera-tag' data-skip-auto-detect='false' [attr.data-maxlength]='question_time' id='myCamera'></camera>
+            </form>
+            <h4 class="time1"></h4>
+            <div style="color:red;" class="redirect">
+              <div class="progress">
+                <div class="progress-bar progress-bar-warning" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"
+                  style="width:10%">
+                  3%
+                </div>
+              </div>
+            </div>
+
+
+            <div *ngIf="saveButtonStatus===1">
+              <button id="publishbtn" (click)="commit(questions.id,questions.ano, questions.max_count)" mat-flat-button color="primary"
+                style="font-weight:bold;width:100%;margin-top:4px;background:#0073B1;">{{saveButton}}</button>
+
+            </div>
+            <div *ngIf="nextButtonStatus===1">
+              <button (click)="reset(questions.id,questions.ano, questions.max_count)" mat-flat-button color="accent" style="width:100%;margin-top:4px;"
+                id="nextbtn">{{nextButton}}</button>
+
+            </div>
+
+            <div *ngIf="finishButtonStatus===1">
+              <button style="width:100%;" mat-raised-button color="warn">{{finishButton}}</button>
+            </div>
+
+
+
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+
+        <div class="panel panel-default">
+          <div class="panel-body text-center">
+            <div class="qtitle">
+              <div class="alert alert-success" style="font-weight:bold;background:#daedfb;border:0px">
+
+                {{questions.q_title}} &nbsp;
+
+                <button mat-raised-button color="primary" style="background:#bf155b;color:white;" id="play">
+                  <mat-icon>play_circle_filled</mat-icon> Play
+                </button>
+              </div>
+
+
+            </div>
+
+            <div>
+              <img [src]="imagePath" class="speak" style="width:100%;height: auto;" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="col-md-4" style="display:none">
+      <div class="panel panel-default">
+        <div class="panel-heading">Interviewer</div>
+        <div class="panel-body">
+          <div class="">
+
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel-default">
+        <div class="panel-heading">Important Note..!</div>
+        <div class="panel-body">Don't click on video while recording.</div>
+        <input style="margin-left:20px;width:80%;" type="hidden" id="transcription" readonly="readonly" />
+
+        <div class="buttons-wrapper text-center">
+          <button id="button-play-ws" style="color:white;background:white;border:0px solid white;" class="button-demo">Play</button>&nbsp;
+          <button id="button-stop-ws" class="button-demo" style="color:white;background:white;border:0px solid white;">Stop</button>&nbsp;
+          <button id="clear-all" class="button-demo" style="color:white;background:white;border:0px solid white;">Clear</button>
+          <br />
+          <button mat-raised-button id="show-content" color="primary" class="button-demo" style="color:white; border:0px; backgroud:white;margin-top:3px;">Show Voice Text</button>
+        </div>
+        <br />
+      </div>
+
+
+    </div>
+
+
+  </div>
+</div>
+<button id="start-btn" style="background:transparent;color:transparent;border:0px solid transparent;">Start</button>
+<button id="stop-btn" style="background:transparent;color:transparent;border:0px solid transparent;">Stop</button>
+<button id="reset-btn" style="background:transparent;color:transparent;border:0px solid transparent;">Reset</button>
+<button class="myroute" style="background:transparent;color:transparent;border:0px solid transparent;" routerLink="/examboard/viewreviews">Link</button>
+<button id="setime" style="background:transparent;color:transparent;border:0px solid transparent;">SetTime</button>
